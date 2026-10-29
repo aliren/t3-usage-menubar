@@ -1,0 +1,9 @@
+.build/
+dist/
+Research/installed-server.mjs
+.DS_Store
+Backups/
+# Local working notes and machine-specific check output
+Evidence/
+STATE.md
+HANDOVER.md
