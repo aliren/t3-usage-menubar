@@ -5,14 +5,14 @@ public struct RuntimeEndpoint: Sendable {
     public let webSocketURL: URL
     public static func decode(_ data: Data) throws -> RuntimeEndpoint {
         guard let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let host = j["host"] as? String, ["127.0.0.1", "localhost", "::1"].contains(host),
+              j["host"] is String, // bind address (may be 0.0.0.0); we only ever connect to the loopback origin
               let portNumber = j["port"] as? NSNumber, CFGetTypeID(portNumber) != CFBooleanGetTypeID(),
               portNumber.doubleValue.rounded() == portNumber.doubleValue,
               (1...65535).contains(portNumber.intValue),
               let origin = j["origin"] as? String, let url = URLComponents(string: origin),
               url.scheme == "http", url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               url.path.isEmpty || url.path == "/", url.port == portNumber.intValue,
-              url.host == host || (host == "::1" && url.host == "[::1]") else { throw UsageError.unsafeEndpoint }
+              let originHost = url.host, ["127.0.0.1", "localhost", "::1", "[::1]"].contains(originHost) else { throw UsageError.unsafeEndpoint }
         var ws = url; ws.scheme = "ws"; ws.path = "/ws"
         ws.queryItems = [URLQueryItem(name: "orchestrationProtocol", value: "2")]
         guard let endpoint = ws.url else { throw UsageError.unsafeEndpoint }

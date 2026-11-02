@@ -128,6 +128,8 @@ final class CoreTests {
         }
         let endpoint = try RuntimeEndpoint.decode(encoded("http://127.0.0.1:3773"))
         expectEqual(endpoint.webSocketURL.absoluteString, "ws://127.0.0.1:3773/ws?orchestrationProtocol=2")
+        // T3 0.1.7 binds 0.0.0.0 but keeps a loopback origin
+        expectEqual(try RuntimeEndpoint.decode(encoded("http://127.0.0.1:3773", host: "0.0.0.0")).webSocketURL.host, "127.0.0.1")
         for origin in ["https://127.0.0.1:3773", "http://example.com:3773", "http://127.0.0.1:3774", "http://user:secret@127.0.0.1:3773", "http://127.0.0.1:3773/path", "http://127.0.0.1:3773?token=secret"] {
             expectThrows(try RuntimeEndpoint.decode(encoded(origin)))
         }
