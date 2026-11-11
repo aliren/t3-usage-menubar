@@ -29,6 +29,7 @@ let checks: [(String, () throws -> Void)] = [
     ("local endpoint validation", tests.testRuntimeRejectsRemoteMalformedAndCredentialURLs),
     ("disabled providers and preserved selection", tests.testDisabledProvidersHiddenAndSelectionPreserved),
     ("manual refresh and overlap", tests.testManualRefreshBypassesTimerButNeverOverlaps),
+    ("pace versus even spend", tests.testPace),
     ("dates and label sanitation", tests.testDatesAndLabels)
 ]
 for (name, run) in checks {

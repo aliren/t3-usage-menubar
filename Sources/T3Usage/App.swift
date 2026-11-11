@@ -433,7 +433,11 @@ final class UsageController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 let reset = text(resetCaption(window, compact: true), size: 12, color: Self.dim, width: nil)
                 reset.toolTip = window.resetText(at: now)
                 add(row(text(what, size: 12, color: Self.mid, width: nil), reset), gap: 6)
-                add(Meter(Double(window.remaining) / 100, tint: window.remaining <= Self.lowRemaining ? .systemOrange : .labelColor), gap: 10)
+                add(Meter(Double(window.remaining) / 100, tint: window.remaining <= Self.lowRemaining ? .systemOrange : .labelColor,
+                          pace: window.elapsedFraction(at: now).map { 1 - $0 }), gap: 10)
+                if let paceLine = window.paceText(at: now) {
+                    add(text(paceLine, size: 11, color: (window.pace(at: now) ?? 0) >= 3 ? .systemOrange : Self.dim), gap: 7)
+                }
             } else {
                 add(text(blank.detail, size: 12, color: Self.mid), gap: 8)
                 if blank.title == "Reset" { add(Meter(nil, tint: .labelColor), gap: 10) }
@@ -444,8 +448,10 @@ final class UsageController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 add(row(text(other.label, size: 12, color: Self.mid, width: nil),
                         text(quota.replacingOccurrences(of: "~", with: ""), size: 12, width: nil)), gap: 20)
                 add(Meter(remaining.map { Double($0) / 100 }, tint: (remaining ?? 100) <= Self.lowRemaining
-                    ? .systemOrange : NSColor.labelColor.withAlphaComponent(0.55)), gap: 8)
-                let reset = text(resetCaption(other), size: 11, color: Self.dim)
+                    ? .systemOrange : NSColor.labelColor.withAlphaComponent(0.55),
+                    pace: remaining == nil ? nil : other.elapsedFraction(at: now).map { 1 - $0 }), gap: 8)
+                let reset = text([resetCaption(other), remaining == nil ? nil : other.paceText(at: now)]
+                    .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "), size: 11, color: Self.dim)
                 reset.toolTip = other.resetText(at: now)
                 add(reset, gap: 7)
             }
@@ -500,21 +506,28 @@ final class UsageController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 final class CardPanel: NSPanel { override var canBecomeKey: Bool { true } }
 /// 3 pt rounded track with a filled share; `nil` draws the track only.
 @MainActor final class Meter: NSView {
-    let fraction: Double?, tint: NSColor
-    init(_ fraction: Double?, tint: NSColor) {
-        self.fraction = fraction; self.tint = tint
+    let fraction: Double?, tint: NSColor, pace: Double?
+    /// `pace` is the remaining share an even spend would leave now; drawn as a tick.
+    init(_ fraction: Double?, tint: NSColor, pace: Double? = nil) {
+        self.fraction = fraction; self.tint = tint; self.pace = pace
         super.init(frame: .zero)
-        heightAnchor.constraint(equalToConstant: 3).isActive = true
+        heightAnchor.constraint(equalToConstant: 9).isActive = true
         widthAnchor.constraint(equalToConstant: UsageController.contentWidth).isActive = true
     }
     required init?(coder: NSCoder) { nil }
     override func draw(_ dirtyRect: NSRect) {
-        let radius = bounds.height / 2
+        let track = NSRect(x: 0, y: (bounds.height - 3) / 2, width: bounds.width, height: 3), radius: CGFloat = 1.5
         NSColor.labelColor.withAlphaComponent(0.1).setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
-        guard let fraction, fraction > 0 else { return }
-        var fill = bounds; fill.size.width = max(bounds.height, bounds.width * min(1, fraction))
-        tint.setFill(); NSBezierPath(roundedRect: fill, xRadius: radius, yRadius: radius).fill()
+        NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
+        if let fraction, fraction > 0 {
+            var fill = track; fill.size.width = max(track.height, track.width * min(1, fraction))
+            tint.setFill(); NSBezierPath(roundedRect: fill, xRadius: radius, yRadius: radius).fill()
+        }
+        if let pace {
+            let x = min(bounds.width - 1, max(0, bounds.width * min(1, max(0, pace)) - 0.75))
+            NSColor.labelColor.withAlphaComponent(0.75).setFill()
+            NSBezierPath(roundedRect: NSRect(x: x, y: 0, width: 1.5, height: bounds.height), xRadius: 0.75, yRadius: 0.75).fill()
+        }
     }
 }
 @MainActor final class Dot: NSView {

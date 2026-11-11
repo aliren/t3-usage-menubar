@@ -171,6 +171,19 @@ final class CoreTests {
         gate.end()
         expectEqual(gate.secondsRemaining(now: now.addingTimeInterval(2)), 299)
     }
+    func testPace() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        func w(_ used: Double, _ left: Double, kind: String = "weekly", mins: Int? = nil) -> UsageWindow {
+            UsageWindow(id: "w", kind: kind, label: "W", usedPercent: used, resetsAt: now.addingTimeInterval(left), durationMins: mins)
+        }
+        // Weekly, half elapsed: 70% used is 20 over, 30% used is 20 in reserve, 51% is on pace.
+        expectEqual(w(70, 302_400).paceText(at: now), "20% over pace")
+        expectEqual(w(30, 302_400).paceText(at: now), "20% in reserve")
+        expectEqual(w(51, 302_400).paceText(at: now), "On pace")
+        // Explicit duration wins; unknown length (monthly without duration) gives no pace.
+        expectEqual(w(0, 1800, kind: "session", mins: 60).paceText(at: now), "50% in reserve")
+        expectTrue(w(10, 1000, kind: "monthly").pace(at: now) == nil)
+    }
     func testDatesAndLabels() {
         expectNotNil(Dates.parse("2026-10-28T18:00:00.123Z")); expectNil(Dates.parse("not-a-date"))
         expectEqual(cleanLabel("Demo\n\tAccount"), "DemoAccount")

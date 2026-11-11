@@ -43,7 +43,27 @@ public struct UsageWindow: Equatable, Sendable {
     public let usedPercent: Double
     public let resetsAt: Date?
     public let durationMins: Int?
+    public init(id: String, kind: String, label: String, usedPercent: Double, resetsAt: Date?, durationMins: Int?) {
+        self.id = id; self.kind = kind; self.label = label; self.usedPercent = usedPercent; self.resetsAt = resetsAt; self.durationMins = durationMins
+    }
     public var remaining: Int { Int(floor(100 - usedPercent)) }
+    /// Window length in minutes: T3's value, else the usual length for session/weekly windows.
+    public var lengthMins: Int? { durationMins ?? (kind == "session" ? 300 : kind == "weekly" ? 10080 : nil) }
+    /// Share of the window already elapsed (0...1); nil when the length or reset is unknown.
+    public func elapsedFraction(at now: Date) -> Double? {
+        guard let reset = resetsAt, let mins = lengthMins, mins > 0, reset > now else { return nil }
+        return min(1, max(0, 1 - reset.timeIntervalSince(now) / Double(mins * 60)))
+    }
+    /// Used minus even-spend usage, in points. Positive = spending faster than the window allows.
+    public func pace(at now: Date) -> Double? {
+        elapsedFraction(at: now).map { usedPercent - $0 * 100 }
+    }
+    public func paceText(at now: Date) -> String? {
+        guard let p = pace(at: now) else { return nil }
+        let n = Int(abs(p).rounded())
+        if n < 3 { return "On pace" }
+        return p > 0 ? "\(n)% over pace" : "\(n)% in reserve"
+    }
     public func resetPassed(at now: Date) -> Bool { resetsAt.map { $0 <= now } ?? false }
     public func resetText(at now: Date) -> String {
         guard let reset = resetsAt else { return "Reset time not supplied by T3" }
